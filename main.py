@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Form, File, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
+import os
 import time
 import json
 import httpx
+from fastapi import FastAPI, Form, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 # Optional PDF text extraction — falls back gracefully if pypdf isn't installed.
 try:
@@ -14,8 +15,6 @@ except ImportError:
 
 app = FastAPI()
 
-# Scope CORS to the actual frontend origin rather than a wildcard + credentials
-# (that combination is invalid per spec and browsers may reject it anyway).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -28,16 +27,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# NOTE: this points at a localtunnel URL exposing your own machine's Ollama
-# instance (localhost:11434). It only works while that tunnel is running AND
-# your laptop + Ollama are on. Update this line each time you restart the
-# tunnel, since localtunnel gives you a new URL every time unless you use a
-# fixed subdomain (see note at the bottom of this file).
-OLLAMA_API_URL = "https://beige-ways-appear.loca.lt/api/generate"
-OLLAMA_TAGS_URL = "https://beige-ways-appear.loca.lt/api/tags"
-MODEL_NAME = "qwen2.5:1.5b"
+# --- Groq (cloud-hosted LLM) config ---
+# GROQ_API_KEY must be set as an environment variable on Render
+# (Render dashboard -> your service -> Environment -> Add Environment Variable).
+# Never hardcode the key directly in this file.
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models"
+# llama-3.3-70b-versatile is a good default: strong quality, generous free tier.
+# llama-3.1-8b-instant is faster/cheaper if you want lower latency instead.
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-# System instructions per "AI Tools" tab. Anything not listed uses DEFAULT_SYSTEM.
 DEFAULT_SYSTEM = (
     "You are a highly capable AI assistant. Answer the user's prompt directly, "
     "thoroughly, and accurately. Do NOT output generic template headings like "
@@ -57,61 +57,57 @@ OCR_SYSTEM = (
 )
 
 TAB_SYSTEM_PROMPTS = {
-    "AI Tools": OCR_SYSTEM,  # only meaningfully differs for the OCR Extractor tool;
-                              # other AI Tools reuse the default assistant behavior.
+    "AI Tools": OCR_SYSTEM,
 }
 
 
-async def call_ollama(prompt: str, system: str, temperature: float, max_tokens: int) -> str:
+async def call_groq(prompt: str, system: str, temperature: float, max_tokens: int) -> str:
     """
-    Sends prompt to the local Ollama instance asynchronously so the FastAPI
-    event loop isn't blocked while waiting on generation.
+    Sends the prompt to Groq's OpenAI-compatible chat completions endpoint.
+    This is a cloud-hosted API — no local server, no tunnel, no laptop uptime
+    dependency. Just needs GROQ_API_KEY set as an env var on the host.
     """
-    full_prompt = f"{system}\n\nUser: {prompt}\nAssistant:"
-
-    payload = {
-        "model": MODEL_NAME,
-        "prompt": full_prompt,
-        "stream": False,
-        "options": {
-            "temperature": temperature,
-            "num_predict": max_tokens,
-            "top_p": 0.9,
-        },
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            # localtunnel shows an HTML warning page to browsers unless this
-            # header is sent — without it, every request here would get back
-            # an HTML page instead of Ollama's JSON response.
-            response = await client.post(
-                OLLAMA_API_URL,
-                json=payload,
-                headers={"bypass-tunnel-reminder": "true"},
-            )
-    except httpx.RequestError as e:
+    if not GROQ_API_KEY:
         return (
-            "Ollama/LLM Server is unreachable. Please ensure Ollama is running.\n"
-            f"Details: {str(e)}"
+            "GROQ_API_KEY is not set. Add it as an environment variable in your "
+            "Render service settings (Environment tab)."
         )
 
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(GROQ_API_URL, json=payload, headers=headers)
+    except httpx.RequestError as e:
+        return f"Groq API is unreachable.\nDetails: {str(e)}"
+
     if response.status_code != 200:
-        return f"Error from LLM engine: received status code {response.status_code}"
+        return f"Error from Groq API: received status code {response.status_code} — {response.text[:200]}"
 
     try:
         result = response.json()
     except json.JSONDecodeError:
-        return "Error from LLM engine: response was not valid JSON."
+        return "Error from Groq API: response was not valid JSON."
 
-    return result.get("response", "").strip()
+    try:
+        return result["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError):
+        return "Error from Groq API: unexpected response shape."
 
 
 def extract_file_text(filename: str, content: bytes, max_chars: int = 2000) -> str:
     """
     Best-effort text extraction. PDFs get real text extraction if pypdf is
-    installed; everything else is treated as UTF-8 text (fine for .txt, best
-    effort for anything else). Truncates to max_chars either way.
+    installed; everything else is treated as UTF-8 text. Truncates to max_chars.
     """
     lower_name = filename.lower()
 
@@ -148,24 +144,20 @@ def try_parse_json(text: str):
 
 @app.get("/health")
 async def health():
-    """Lets the frontend show real backend/model status instead of relying
-    only on /api/analyze failures after the fact."""
+    """Reports whether the Groq API key is set and reachable."""
+    if not GROQ_API_KEY:
+        return {"status": "down", "groq_reachable": False, "reason": "GROQ_API_KEY not set"}
+
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
+        async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
-                OLLAMA_TAGS_URL, headers={"bypass-tunnel-reminder": "true"}
+                GROQ_MODELS_URL, headers={"Authorization": f"Bearer {GROQ_API_KEY}"}
             )
         if resp.status_code != 200:
-            return {"status": "degraded", "ollama_reachable": False}
-        models = [m.get("name") for m in resp.json().get("models", [])]
-        return {
-            "status": "ok",
-            "ollama_reachable": True,
-            "model_loaded": MODEL_NAME in models,
-            "available_models": models,
-        }
+            return {"status": "degraded", "groq_reachable": False, "status_code": resp.status_code}
+        return {"status": "ok", "groq_reachable": True, "model": GROQ_MODEL}
     except httpx.RequestError:
-        return {"status": "down", "ollama_reachable": False}
+        return {"status": "down", "groq_reachable": False}
 
 
 @app.post("/api/analyze")
@@ -190,7 +182,7 @@ async def analyze(
 
     system_prompt = TAB_SYSTEM_PROMPTS.get(active_tab, DEFAULT_SYSTEM)
 
-    ai_response = await call_ollama(formatted_prompt, system_prompt, temperature, max_tokens)
+    ai_response = await call_groq(formatted_prompt, system_prompt, temperature, max_tokens)
 
     latency = round(time.time() - start_time, 2)
 
@@ -200,8 +192,6 @@ async def analyze(
         "status": "success",
     }
 
-    # If this was an OCR/extraction-style call, try to surface structured data
-    # for the frontend's `extractedData` rendering.
     if active_tab == "AI Tools":
         parsed = try_parse_json(ai_response)
         if parsed:
