@@ -33,8 +33,8 @@ app.add_middleware(
 # your laptop + Ollama are on. Update this line each time you restart the
 # tunnel, since localtunnel gives you a new URL every time unless you use a
 # fixed subdomain (see note at the bottom of this file).
-OLLAMA_API_URL = "https://wide-hands-see.loca.lt/api/generate"
-OLLAMA_TAGS_URL = "https://wide-hands-see.loca.lt/api/tags"
+OLLAMA_API_URL = "https://beige-ways-appear.loca.lt/api/generate"
+OLLAMA_TAGS_URL = "https://beige-ways-appear.loca.lt/api/tags"
 MODEL_NAME = "qwen2.5:1.5b"
 
 # System instructions per "AI Tools" tab. Anything not listed uses DEFAULT_SYSTEM.
