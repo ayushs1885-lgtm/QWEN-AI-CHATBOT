@@ -30,6 +30,9 @@ import {
   AlertTriangle
 } from "lucide-react";
 
+// Production backend URL setup with fallback
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://qwen-ai-chatbot.onrender.com";
+
 interface OcrExtractedData {
   orderId?: string;
   date?: string;
@@ -107,19 +110,11 @@ const RobotMascot = () => (
   </div>
 );
 
-// Atmospheric Glowing Planet Background graphic matching the requested UI design
 const CosmicPlanetBackground = () => (
   <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-    {/* Atmospheric outer glow */}
     <div className="absolute -bottom-40 -right-20 w-[650px] h-[650px] rounded-full bg-gradient-to-tr from-indigo-900/40 via-purple-600/20 to-blue-500/30 blur-3xl opacity-75" />
-    
-    {/* Planet curvature sphere */}
     <div className="absolute -bottom-72 -right-36 w-[800px] h-[800px] rounded-full bg-[#050819] border border-indigo-400/20 shadow-[0_-25px_80px_rgba(99,102,241,0.25)] opacity-90" />
-    
-    {/* Glowing horizon crest curve */}
     <div className="absolute -bottom-72 -right-36 w-[800px] h-[800px] rounded-full border-t-2 border-indigo-300/60 shadow-[0_-10px_30px_rgba(168,85,247,0.8)]" />
-
-    {/* Distant ambient nebula stars */}
     <div className="absolute top-1/4 right-1/3 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_white] opacity-80" />
     <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 bg-indigo-200 rounded-full shadow-[0_0_10px_indigo] opacity-60" />
     <div className="absolute top-1/2 right-1/2 w-1 h-1 bg-purple-300 rounded-full shadow-[0_0_6px_purple] opacity-70" />
@@ -158,7 +153,6 @@ export default function QwenDashboard() {
     }
   }, []);
 
-  // Automatic Smooth Scrolling
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
@@ -185,7 +179,6 @@ export default function QwenDashboard() {
     if (!customQuery) setInput("");
     setIsLoading(true);
 
-    // EXACT CHECK: If user asks who made you
     const cleanedQuery = queryToSend.trim().toLowerCase();
     if (
       cleanedQuery.includes("who made u") || 
@@ -214,7 +207,7 @@ export default function QwenDashboard() {
       formData.append("message", queryToSend);
       formData.append("active_tab", activeTab);
 
-      const res = await fetch("http://localhost:8000/api/analyze", {
+      const res = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: "POST",
         body: formData,
       });
@@ -248,7 +241,7 @@ export default function QwenDashboard() {
 
       const errorMsg: Message = {
         role: "assistant",
-        content: "⚠️ Failed to connect to Python Backend. Make sure `python main.py` is running on port 8000.",
+        content: "⚠️ Failed to connect to Python Backend. Please check server status.",
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         latency: calculatedLatency,
         isError: true,
@@ -271,7 +264,7 @@ export default function QwenDashboard() {
     formData.append("message", `File uploaded: ${file.name}`);
 
     try {
-      const res = await fetch("http://localhost:8000/api/analyze", {
+      const res = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: "POST",
         body: formData,
       });
@@ -428,11 +421,8 @@ export default function QwenDashboard() {
 
       {/* MAIN VIEW AREA */}
       <main className={`flex-1 flex flex-col justify-between p-6 relative overflow-hidden transition-colors duration-300 ${
-        darkMode 
-          ? "bg-[#060814]"
-          : "bg-slate-50"
+        darkMode ? "bg-[#060814]" : "bg-slate-50"
       }`}>
-        {/* Planet Ambient Background Graphic */}
         {darkMode && <CosmicPlanetBackground />}
 
         <header className="flex justify-between items-start mb-2 z-10">
@@ -512,7 +502,7 @@ export default function QwenDashboard() {
           </div>
         )}
 
-        {/* TAB 2: CHATS (Scrollbar removed, self-scrolling enabled) */}
+        {/* TAB 2: CHATS */}
         {activeTab === "Chats" && (
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 my-2 z-10 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {messages.length === 0 ? (
@@ -672,98 +662,51 @@ export default function QwenDashboard() {
 
         {/* INPUT PROMPT BOX */}
         <div className="z-10 mt-2">
-          <div className={`p-2.5 rounded-2xl border backdrop-blur-xl shadow-2xl transition-all ${
-            darkMode ? "bg-[#0b0f2a]/90 border-indigo-500/30 focus-within:border-indigo-500" : "bg-white border-slate-300 focus-within:border-indigo-600"
+          <div className={`p-2.5 rounded-2xl border backdrop-blur-xl shadow-2xl ${
+            darkMode ? "bg-[#090d22]/90 border-indigo-500/30" : "bg-white/90 border-slate-300"
           }`}>
-            <textarea
-              rows={2}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSend())}
-              placeholder="Type your message or ask a question..."
-              className={`w-full bg-transparent px-3 py-1.5 text-sm focus:outline-none resize-none ${
-                darkMode ? "text-white placeholder-slate-500" : "text-slate-900 placeholder-slate-400"
-              }`}
-            />
-            <div className="flex items-center justify-between px-2 pt-1 border-t border-black/5 dark:border-white/5">
-              <div className="flex items-center gap-2 opacity-60">
-                <button onClick={() => fileInputRef.current?.click()} className="p-1.5 hover:opacity-100 rounded-lg transition-all cursor-pointer" title="Attach file">
-                  <Paperclip className="h-4 w-4" />
-                </button>
-              </div>
-              <button onClick={() => handleSend()} disabled={isLoading} className="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-50">
-                <Send className="h-4 w-4" />
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+              className="flex items-center gap-2"
+            >
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading || isLoading}
+                className={`p-2.5 rounded-xl border transition-colors cursor-pointer disabled:opacity-50 ${
+                  darkMode ? "border-indigo-500/20 text-indigo-400 hover:bg-indigo-950/50" : "border-slate-300 text-slate-600 hover:bg-slate-100"
+                }`}
+                title="Attach Document"
+              >
+                <Paperclip className="h-4 w-4" />
               </button>
-            </div>
+
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask Qwen AI anything..."
+                disabled={isLoading}
+                className={`flex-1 bg-transparent px-3 py-2 text-sm focus:outline-none ${
+                  darkMode ? "text-white placeholder-slate-500" : "text-slate-900 placeholder-slate-400"
+                }`}
+              />
+
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+              >
+                <span>Send</span>
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </form>
           </div>
         </div>
       </main>
-
-      {/* RIGHT SIDEBAR */}
-      <aside className={`w-80 border-l p-5 flex flex-col gap-5 backdrop-blur-xl overflow-y-auto z-20 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden transition-colors duration-300 ${
-        darkMode ? "border-indigo-900/30 bg-[#080b1e]/95" : "border-slate-300 bg-white/80"
-      }`}>
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-950/80 to-purple-950/60 border border-indigo-500/30 flex flex-col items-center justify-center relative overflow-hidden shadow-xl">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30 mb-2 relative z-10">
-            <QwenLogo size="w-10 h-10" />
-          </div>
-        </div>
-
-        <div className={`p-4 rounded-xl border space-y-3 ${darkMode ? "bg-[#0e1338]/80 border-indigo-500/20" : "bg-slate-100 border-slate-200"}`}>
-          <h3 className="text-xs font-semibold tracking-wider opacity-80">Capabilities</h3>
-          <div className="space-y-2 text-xs opacity-90">
-            {[
-              { label: "Natural Conversations", icon: MessageSquare },
-              { label: "Document Q&A (RAG)", icon: FileText },
-              { label: "Code Generation", icon: Code },
-              { label: "Reasoning & Analysis", icon: Activity },
-              { label: "Web Search", icon: Globe },
-            ].map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2.5">
-                <item.icon className="h-3.5 w-3.5 text-indigo-400" />
-                <span>{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className={`p-4 rounded-xl border space-y-3 ${darkMode ? "bg-[#0e1338]/80 border-indigo-500/20" : "bg-slate-100 border-slate-200"}`}>
-          <h3 className="text-xs font-semibold tracking-wider opacity-80">Upload Document</h3>
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-indigo-500/30 rounded-xl p-4 text-center hover:border-indigo-400 cursor-pointer transition-colors bg-indigo-950/10"
-          >
-            <Upload className="h-5 w-5 text-indigo-400 mx-auto mb-1.5" />
-            <div className="text-xs font-medium">
-              {isUploading ? "Uploading..." : "Drag & drop your file here"}
-            </div>
-            <div className="text-[10px] opacity-70 mt-1">or <span className="text-indigo-400 underline">click to browse</span></div>
-            <div className="text-[9px] opacity-50 mt-1">Supports PDF, PNG, TXT, DOCX</div>
-          </div>
-        </div>
-
-        <div className={`p-4 rounded-xl border space-y-3 ${darkMode ? "bg-[#0e1338]/80 border-indigo-500/20" : "bg-slate-100 border-slate-200"}`}>
-          <h3 className="text-xs font-semibold tracking-wider opacity-80">Chat Stats</h3>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between opacity-80">
-              <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5 text-indigo-400" /> Messages</span>
-              <span className="font-semibold">{messages.length}</span>
-            </div>
-            <div className="flex justify-between opacity-80">
-              <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-indigo-400" /> Last Latency</span>
-              <span className="font-semibold text-emerald-500">{lastLatency !== null ? `${lastLatency}s` : "N/A"}</span>
-            </div>
-            <div className="flex justify-between opacity-80">
-              <span className="flex items-center gap-1.5"><AlertTriangle className={`h-3.5 w-3.5 ${failureCount > 0 ? "text-rose-400" : "text-indigo-400"}`} /> Total Failures</span>
-              <span className={`font-semibold ${failureCount > 0 ? "text-rose-400" : ""}`}>{failureCount}</span>
-            </div>
-            <div className="flex justify-between opacity-80">
-              <span className="flex items-center gap-1.5"><Cpu className="h-3.5 w-3.5 text-indigo-400" /> Model</span>
-              <span className="font-semibold">Qwen 2.5 - 1.5B</span>
-            </div>
-          </div>
-        </div>
-      </aside>
     </div>
   );
 }
