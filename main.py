@@ -15,6 +15,15 @@ except ImportError:
 
 app = FastAPI()
 
+from ticketing import router as ticketing_router, start_background_sweep
+app.include_router(ticketing_router)
+
+
+@app.on_event("startup")
+async def _launch_background_tasks():
+    start_background_sweep()
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -34,9 +43,10 @@ app.add_middleware(
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models"
-# llama-3.3-70b-versatile is a good default: strong quality, generous free tier.
-# llama-3.1-8b-instant is faster/cheaper if you want lower latency instead.
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# openai/gpt-oss-20b is fast and available on Groq's free tier.
+# openai/gpt-oss-120b is a larger/higher-quality alternative, still free-tier accessible.
+# (llama-3.3-70b-versatile and llama-3.1-8b-instant moved to Enterprise-only access.)
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 
 DEFAULT_SYSTEM = (
     "You are a highly capable AI assistant. Answer the user's prompt directly, "
