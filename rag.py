@@ -233,6 +233,70 @@ def score_relevance(question: str, corpus: list) -> dict:
 # Date-intent parsing ("current" vs "as of a specific past date")
 # =========================================================================
 
+MONTH_NAMES = {
+    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+    "aug": 8, "august": 8, "sep": 9, "sept": 9, "september": 9, "oct": 10,
+    "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
+}
+
+
+def _last_day_of_month(year: int, month: int) -> int:
+    if month == 12:
+        return 31
+    return (date(year, month + 1, 1) - date(year, month, 1)).days
+
+
+def regex_extract_date(question: str):
+    """Fast, deterministic date extraction for common phrasings — tried
+    before the LLM fallback so historical-date detection doesn't depend on
+    the model reliably returning valid JSON. Returns a `date` or None."""
+    q = question.lower()
+
+    # ISO: 2025-06-15
+    m = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", q)
+    if m:
+        y, mo, d = map(int, m.groups())
+        try:
+            return date(y, mo, d)
+        except ValueError:
+            pass
+
+    # 15 June 2025 / 15th June 2025
+    m = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\s+(\d{4})\b", q)
+    if m and m.group(2) in MONTH_NAMES:
+        d, mo_name, y = int(m.group(1)), m.group(2), int(m.group(3))
+        try:
+            return date(y, MONTH_NAMES[mo_name], d)
+        except ValueError:
+            pass
+
+    # June 15, 2025 / June 2025
+    m = re.search(r"\b([a-z]+)\s+(\d{1,2}),?\s+(\d{4})\b", q)
+    if m and m.group(1) in MONTH_NAMES:
+        mo_name, d, y = m.group(1), int(m.group(2)), int(m.group(3))
+        try:
+            return date(y, MONTH_NAMES[mo_name], d)
+        except ValueError:
+            pass
+
+    m = re.search(r"\b([a-z]+)\s+(\d{4})\b", q)
+    if m and m.group(1) in MONTH_NAMES:
+        mo_name, y = m.group(1), int(m.group(2))
+        month = MONTH_NAMES[mo_name]
+        # month-only precision -> use the last day of that month, so a
+        # policy effective any time during the month is still matched
+        return date(y, month, _last_day_of_month(y, month))
+
+    # bare year: "in 2024" / "during 2023" — use 31 Dec of that year
+    m = re.search(r"\b(?:in|during|for|as of)\s+((?:19|20)\d{2})\b", q)
+    if m:
+        y = int(m.group(1))
+        return date(y, 12, 31)
+
+    return None
+
+
 DATE_PARSE_SYSTEM = """Determine whether the user's question asks about the CURRENT/present state of a
 policy, or about a SPECIFIC PAST DATE.
 Respond with ONLY JSON: {"as_of_date": "YYYY-MM-DD" or null, "is_historical": true or false}
@@ -242,6 +306,13 @@ Only set as_of_date when the user explicitly references a specific date, month, 
 
 
 async def parse_as_of_date(question: str) -> tuple:
+    # 1. Deterministic regex pass first — doesn't depend on the model
+    #    returning well-formed JSON, and covers the common phrasings.
+    regex_date = regex_extract_date(question)
+    if regex_date:
+        return regex_date, True
+
+    # 2. LLM fallback for phrasings the regex doesn't cover.
     if not GROQ_API_KEY:
         return date.today(), False
     payload = {
