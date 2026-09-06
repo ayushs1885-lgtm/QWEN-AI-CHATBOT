@@ -16,7 +16,9 @@ except ImportError:
 app = FastAPI()
 
 from ticketing import router as ticketing_router, start_background_sweep
+from rag import router as rag_router
 app.include_router(ticketing_router)
+app.include_router(rag_router)
 
 
 @app.on_event("startup")
