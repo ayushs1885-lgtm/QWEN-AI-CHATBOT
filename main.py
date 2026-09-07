@@ -32,6 +32,7 @@ app.add_middleware(
         "http://localhost:3000",
         "https://qwen-ai-chatbot.vercel.app",
         "https://qwen-ai-chatbot-git-main-ayushs1885-1915s-projects.vercel.app",
+        "https://myqwenbot.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
