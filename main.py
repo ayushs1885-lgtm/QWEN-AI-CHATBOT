@@ -19,15 +19,18 @@ app = FastAPI()
 from ticketing import router as ticketing_router, start_background_sweep
 from rag import router as rag_router
 from sentiment import router as sentiment_router, start_sentiment_sweep
+from session import router as session_router, start_session_sweep
 app.include_router(ticketing_router)
 app.include_router(rag_router)
 app.include_router(sentiment_router)
+app.include_router(session_router)
 
 
 @app.on_event("startup")
 async def _launch_background_tasks():
     start_background_sweep()
     start_sentiment_sweep()
+    start_session_sweep()
 
 
 app.add_middleware(
