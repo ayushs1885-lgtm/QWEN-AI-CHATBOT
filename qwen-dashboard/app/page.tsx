@@ -119,6 +119,7 @@ const CosmicPlanetBackground = () => (
     <div className="absolute top-1/4 right-1/3 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_white] opacity-80" />
     <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 bg-indigo-200 rounded-full shadow-[0_0_10px_indigo] opacity-60" />
     <div className="absolute top-1/2 right-1/2 w-1 h-1 bg-purple-300 rounded-full shadow-[0_0_6px_purple] opacity-70" />
+    <div className="absolute top-1/5 right-1/2 w-1.5 h-1.5 bg-indigo-300 rounded-full shadow-[0_0_10px_indigo] motion-safe:animate-ping" />
   </div>
 );
 
@@ -384,7 +385,7 @@ export default function QwenDashboard() {
               setMessages([]);
               closeSidebarOnMobile();
             }}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 hover:shadow-[0_0_18px_rgba(129,140,248,0.5)] hover:scale-[1.02] active:scale-95 transition-all duration-200 cursor-pointer"
           >
             <Plus className="h-4 w-4" /> New Chat
           </button>
@@ -575,7 +576,7 @@ export default function QwenDashboard() {
               </div>
             ) : (
               messages.map((msg, index) => (
-                <div key={`${msg.time}-${index}`} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                <div key={`${msg.time}-${index}`} className={`msg-enter flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
                   <div
                     className={`max-w-[88%] sm:max-w-xl p-3 sm:p-4 rounded-2xl backdrop-blur-md border text-sm leading-relaxed ${
                       msg.role === "user"
@@ -636,8 +637,13 @@ export default function QwenDashboard() {
               ))
             )}
             {isLoading && (
-              <div className="text-xs text-indigo-400 animate-pulse flex items-center gap-2">
-                <QwenLogo size="w-4 h-4 animate-spin" /> Processing response...
+              <div className="msg-enter flex items-center gap-2.5 pl-1">
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-[#0d1230]/80 border border-indigo-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:300ms]" />
+                </div>
+                <span className="text-xs text-indigo-400/80">Qwen AI is thinking...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -801,7 +807,7 @@ export default function QwenDashboard() {
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="flex-shrink-0 py-2.5 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+                className="flex-shrink-0 py-2.5 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-indigo-500/20 hover:shadow-[0_0_20px_rgba(129,140,248,0.55)] active:scale-95 transition-all duration-200 cursor-pointer"
               >
                 <span className="hidden sm:inline">Send</span>
                 <Send className="h-3.5 w-3.5" />
