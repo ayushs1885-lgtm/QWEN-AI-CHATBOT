@@ -24,6 +24,7 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
 @keyframes msgEnter {
   from {
     opacity: 0;
@@ -39,8 +40,33 @@ body {
   animation: msgEnter 0.3s ease-out;
 }
 
+@keyframes nebulaDrift {
+  0%   { transform: translate(0, 0) scale(1);        opacity: 0.75; filter: brightness(1); }
+  25%  { transform: translate(18px, -22px) scale(1.08); opacity: 0.9;  filter: brightness(1.2); }
+  50%  { transform: translate(-12px, 12px) scale(0.94); opacity: 0.6;  filter: brightness(0.9); }
+  75%  { transform: translate(22px, 18px) scale(1.05);  opacity: 0.85; filter: brightness(1.15); }
+  100% { transform: translate(0, 0) scale(1);        opacity: 0.75; filter: brightness(1); }
+}
+
+@keyframes nebulaDriftAlt {
+  0%   { transform: translate(0, 0) scale(1);          opacity: 0.5; filter: brightness(1); }
+  30%  { transform: translate(-20px, 16px) scale(1.12); opacity: 0.7; filter: brightness(1.25); }
+  60%  { transform: translate(14px, -18px) scale(0.9);  opacity: 0.4; filter: brightness(0.85); }
+  100% { transform: translate(0, 0) scale(1);          opacity: 0.5; filter: brightness(1); }
+}
+
+.nebula-drift {
+  animation: nebulaDrift 14s ease-in-out infinite;
+}
+
+.nebula-drift-alt {
+  animation: nebulaDriftAlt 19s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .msg-enter {
+  .msg-enter,
+  .nebula-drift,
+  .nebula-drift-alt {
     animation: none;
   }
 }
