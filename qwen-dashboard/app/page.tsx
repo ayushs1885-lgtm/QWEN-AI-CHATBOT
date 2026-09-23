@@ -118,16 +118,20 @@ const CosmicPlanetBackground = () => (
     <div className="absolute -bottom-72 -right-36 w-[800px] h-[800px] motion-safe:animate-[spin_150s_linear_infinite]">
       <div className="absolute inset-0 rounded-full bg-[#050819] border border-indigo-400/20 shadow-[0_-25px_80px_rgba(99,102,241,0.25)] opacity-90" />
       <div className="absolute inset-0 rounded-full border-t-2 border-indigo-300/60 shadow-[0_-10px_30px_rgba(168,85,247,0.8)]" />
-      {/* Moon-like craters on the surface — without visible texture the dark
-          sphere looks the same at every rotation angle, so these give the
-          slow spin something to actually be seen turning. */}
-      <div className="absolute w-14 h-14 rounded-full top-[18%] left-[28%] bg-[radial-gradient(circle_at_35%_35%,rgba(165,180,252,0.35),rgba(15,23,42,0.05)_70%)] shadow-inner" />
-      <div className="absolute w-9 h-9 rounded-full top-[30%] left-[42%] bg-[radial-gradient(circle_at_35%_35%,rgba(196,181,253,0.3),rgba(15,23,42,0.05)_70%)] shadow-inner" />
-      <div className="absolute w-20 h-20 rounded-full top-[10%] left-[45%] bg-[radial-gradient(circle_at_35%_35%,rgba(129,140,248,0.25),rgba(15,23,42,0.05)_70%)] shadow-inner" />
-      <div className="absolute w-6 h-6 rounded-full top-[24%] left-[15%] bg-[radial-gradient(circle_at_35%_35%,rgba(165,180,252,0.3),rgba(15,23,42,0.05)_70%)] shadow-inner" />
-      <div className="absolute w-11 h-11 rounded-full top-[5%] left-[20%] bg-[radial-gradient(circle_at_35%_35%,rgba(196,181,253,0.28),rgba(15,23,42,0.05)_70%)] shadow-inner" />
-      <div className="absolute w-16 h-16 rounded-full top-[2%] left-[35%] bg-[radial-gradient(circle_at_35%_35%,rgba(129,140,248,0.22),rgba(15,23,42,0.05)_70%)] shadow-inner" />
-      <div className="absolute w-7 h-7 rounded-full top-[14%] left-[8%] bg-[radial-gradient(circle_at_35%_35%,rgba(165,180,252,0.32),rgba(15,23,42,0.05)_70%)] shadow-inner" />
+      {/* Moon-like craters: sunken bowls (dark inner shadow + a thin lit rim
+          on one edge), not glowing orbs — this is what makes them read as
+          surface texture rather than floating balls, and gives the slow
+          rotation something visible to actually turn. */}
+      <div className="absolute rounded-full w-16 h-16 top-[16%] left-[26%] bg-[#0a0e1f] shadow-[inset_4px_4px_8px_rgba(0,0,0,0.7),inset_-2px_-2px_5px_rgba(148,163,255,0.18)] border-t border-indigo-300/10" />
+      <div className="absolute rounded-full w-8 h-8 top-[29%] left-[41%] bg-[#0a0e1f] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.7),inset_-1.5px_-1.5px_4px_rgba(148,163,255,0.15)] border-t border-indigo-300/10" />
+      <div className="absolute rounded-full w-24 h-24 top-[6%] left-[44%] bg-[#0a0e1f] shadow-[inset_6px_6px_10px_rgba(0,0,0,0.7),inset_-3px_-3px_6px_rgba(148,163,255,0.15)] border-t border-indigo-300/10" />
+      <div className="absolute rounded-full w-5 h-5 top-[23%] left-[13%] bg-[#0a0e1f] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.7),inset_-1px_-1px_3px_rgba(148,163,255,0.18)] border-t border-indigo-300/10" />
+      <div className="absolute rounded-full w-10 h-10 top-[3%] left-[18%] bg-[#0a0e1f] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.7),inset_-1.5px_-1.5px_4px_rgba(148,163,255,0.15)] border-t border-indigo-300/10" />
+      <div className="absolute rounded-full w-4 h-4 top-[12%] left-[6%] bg-[#0a0e1f] shadow-[inset_2px_2px_3px_rgba(0,0,0,0.7),inset_-1px_-1px_2px_rgba(148,163,255,0.18)] border-t border-indigo-300/10" />
+      <div className="absolute rounded-full w-6 h-6 top-[35%] left-[22%] bg-[#0a0e1f] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.7),inset_-1px_-1px_3px_rgba(148,163,255,0.15)] border-t border-indigo-300/10" />
+      <div className="absolute rounded-full w-14 h-14 top-[20%] left-[50%] bg-[#0a0e1f] shadow-[inset_4px_4px_7px_rgba(0,0,0,0.7),inset_-2px_-2px_5px_rgba(148,163,255,0.15)] border-t border-indigo-300/10" />
+      <div className="absolute rounded-full w-3 h-3 top-[9%] left-[32%] bg-[#0a0e1f] shadow-[inset_1.5px_1.5px_2px_rgba(0,0,0,0.7),inset_-1px_-1px_2px_rgba(148,163,255,0.18)] border-t border-indigo-300/10" />
+      <div className="absolute rounded-full w-[4.5rem] h-[4.5rem] top-[38%] left-[38%] bg-[#0a0e1f] shadow-[inset_5px_5px_8px_rgba(0,0,0,0.7),inset_-2px_-2px_5px_rgba(148,163,255,0.15)] border-t border-indigo-300/10" />
     </div>
     <div className="absolute top-1/4 right-1/3 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_white] opacity-80" />
     <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 bg-indigo-200 rounded-full shadow-[0_0_10px_indigo] opacity-60" />
