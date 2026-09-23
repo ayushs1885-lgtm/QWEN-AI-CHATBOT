@@ -113,10 +113,21 @@ const RobotMascot = () => (
 
 const CosmicPlanetBackground = () => (
   <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-    <div className="absolute -bottom-40 -right-20 w-[650px] h-[650px] rounded-full bg-gradient-to-tr from-indigo-900/40 via-purple-600/20 to-blue-500/30 blur-3xl opacity-75 motion-safe:animate-[pulse_8s_ease-in-out_infinite]" />
+    <div className="nebula-drift absolute -bottom-40 -right-20 w-[650px] h-[650px] rounded-full bg-gradient-to-tr from-indigo-900/40 via-purple-600/20 to-blue-500/30 blur-3xl" />
+    <div className="nebula-drift-alt absolute -bottom-20 -right-52 w-[420px] h-[420px] rounded-full bg-gradient-to-tr from-purple-600/30 via-fuchsia-500/15 to-indigo-500/25 blur-3xl" />
     <div className="absolute -bottom-72 -right-36 w-[800px] h-[800px] motion-safe:animate-[spin_150s_linear_infinite]">
       <div className="absolute inset-0 rounded-full bg-[#050819] border border-indigo-400/20 shadow-[0_-25px_80px_rgba(99,102,241,0.25)] opacity-90" />
       <div className="absolute inset-0 rounded-full border-t-2 border-indigo-300/60 shadow-[0_-10px_30px_rgba(168,85,247,0.8)]" />
+      {/* Moon-like craters on the surface — without visible texture the dark
+          sphere looks the same at every rotation angle, so these give the
+          slow spin something to actually be seen turning. */}
+      <div className="absolute w-14 h-14 rounded-full top-[18%] left-[28%] bg-[radial-gradient(circle_at_35%_35%,rgba(165,180,252,0.35),rgba(15,23,42,0.05)_70%)] shadow-inner" />
+      <div className="absolute w-9 h-9 rounded-full top-[30%] left-[42%] bg-[radial-gradient(circle_at_35%_35%,rgba(196,181,253,0.3),rgba(15,23,42,0.05)_70%)] shadow-inner" />
+      <div className="absolute w-20 h-20 rounded-full top-[10%] left-[45%] bg-[radial-gradient(circle_at_35%_35%,rgba(129,140,248,0.25),rgba(15,23,42,0.05)_70%)] shadow-inner" />
+      <div className="absolute w-6 h-6 rounded-full top-[24%] left-[15%] bg-[radial-gradient(circle_at_35%_35%,rgba(165,180,252,0.3),rgba(15,23,42,0.05)_70%)] shadow-inner" />
+      <div className="absolute w-11 h-11 rounded-full top-[5%] left-[20%] bg-[radial-gradient(circle_at_35%_35%,rgba(196,181,253,0.28),rgba(15,23,42,0.05)_70%)] shadow-inner" />
+      <div className="absolute w-16 h-16 rounded-full top-[2%] left-[35%] bg-[radial-gradient(circle_at_35%_35%,rgba(129,140,248,0.22),rgba(15,23,42,0.05)_70%)] shadow-inner" />
+      <div className="absolute w-7 h-7 rounded-full top-[14%] left-[8%] bg-[radial-gradient(circle_at_35%_35%,rgba(165,180,252,0.32),rgba(15,23,42,0.05)_70%)] shadow-inner" />
     </div>
     <div className="absolute top-1/4 right-1/3 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_white] opacity-80" />
     <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 bg-indigo-200 rounded-full shadow-[0_0_10px_indigo] opacity-60" />
