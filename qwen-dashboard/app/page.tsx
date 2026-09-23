@@ -114,6 +114,7 @@ const RobotMascot = () => (
 const CosmicPlanetBackground = () => (
   <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
     <div className="nebula-drift absolute -bottom-40 -right-20 w-[650px] h-[650px] rounded-full bg-gradient-to-tr from-indigo-900/40 via-purple-600/20 to-blue-500/30 blur-3xl" />
+    <div className="nebula-drift-alt absolute -bottom-52 -right-40 w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-purple-600/25 via-fuchsia-500/12 to-indigo-500/20 blur-3xl" />
     <div className="absolute -bottom-72 -right-36 w-[800px] h-[800px] rounded-full overflow-hidden motion-safe:animate-[spin_150s_linear_infinite]">
       <div className="absolute inset-0 rounded-full bg-[#050819] border border-indigo-400/20 shadow-[0_-25px_80px_rgba(99,102,241,0.25)] opacity-90" />
       <div className="absolute inset-0 rounded-full border-t-2 border-indigo-300/60 shadow-[0_-10px_30px_rgba(168,85,247,0.8)]" />
