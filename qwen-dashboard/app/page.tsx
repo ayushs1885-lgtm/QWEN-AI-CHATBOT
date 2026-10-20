@@ -45,6 +45,13 @@ interface OcrExtractedData {
   conflictReason?: string;
 }
 
+interface Attachment {
+  name: string;
+  type: string;
+  size: number;
+  previewUrl?: string;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -52,6 +59,7 @@ interface Message {
   latency?: number;
   isError?: boolean;
   extractedData?: OcrExtractedData;
+  attachment?: Attachment;
 }
 
 const QwenLogo = ({ size = "w-6 h-6" }: { size?: string }) => (
@@ -147,7 +155,8 @@ export default function QwenDashboard() {
   const [lastLatency, setLastLatency] = useState<number | null>(null);
   const [failureCount, setFailureCount] = useState<number>(0);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [userName, setUserName] = useState<string>("Guest");
 
@@ -192,15 +201,25 @@ export default function QwenDashboard() {
   const closeSidebarOnMobile = () => setSidebarOpen(false);
 
   const handleSend = async (customQuery?: string) => {
-    const queryToSend = customQuery || input;
-    if (!queryToSend.trim() || isLoading) return;
+    const fileToSend = customQuery ? null : pendingFile;
+    const queryToSend =
+      customQuery || input.trim() || (fileToSend ? `Please analyze this file: ${fileToSend.name}` : "");
+    if ((!queryToSend.trim() && !fileToSend) || isLoading) return;
 
     const startTime = performance.now();
     const currentTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const userMsg: Message = { role: "user", content: queryToSend, time: currentTime };
+    const attachment: Attachment | undefined = fileToSend
+      ? { name: fileToSend.name, type: fileToSend.type, size: fileToSend.size, previewUrl: pendingPreview ?? undefined }
+      : undefined;
+    const userMsg: Message = { role: "user", content: queryToSend, time: currentTime, attachment };
 
     setMessages((prev) => [...prev, userMsg]);
     if (!customQuery) setInput("");
+    if (fileToSend) {
+      // keep the object URL alive: the chat bubble still needs it to show the image
+      setPendingFile(null);
+      setPendingPreview(null);
+    }
     setIsLoading(true);
 
     const cleanedQuery = queryToSend.trim().toLowerCase();
@@ -230,6 +249,7 @@ export default function QwenDashboard() {
       const formData = new FormData();
       formData.append("message", queryToSend);
       formData.append("active_tab", activeTab);
+      if (fileToSend) formData.append("file", fileToSend);
       formData.append("temperature", String(temperature));
       formData.append("max_tokens", String(maxTokens));
 
@@ -257,6 +277,7 @@ export default function QwenDashboard() {
       };
 
       setMessages((prev) => [...prev, botMsg]);
+      if (fileToSend) setUploadedFiles((prev) => [...prev, fileToSend.name]);
     } catch (error: any) {
       console.error("Backend Error:", error);
       const endTime = performance.now();
@@ -278,63 +299,29 @@ export default function QwenDashboard() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    const startTime = performance.now();
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("message", `File uploaded: ${file.name}`);
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/analyze`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const endTime = performance.now();
-      const calculatedLatency = Number(((endTime - startTime) / 1000).toFixed(2));
-      setLastLatency(calculatedLatency);
-
-      if (!res.ok) throw new Error("File processing error");
-
-      const data = await res.json();
-
-      setUploadedFiles((prev) => [...prev, file.name]);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: data.reply || `📄 Processed file \`${file.name}\`.`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          latency: calculatedLatency,
-          extractedData: data.extractedData,
-        },
-      ]);
-    } catch (err: any) {
-      const endTime = performance.now();
-      const calculatedLatency = Number(((endTime - startTime) / 1000).toFixed(2));
-
-      setLastLatency(calculatedLatency);
-      setFailureCount((prev) => prev + 1);
-
-      setUploadedFiles((prev) => [...prev, file.name]);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `📄 Attached file \`${file.name}\`. (Failed to extract backend metadata).`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          latency: calculatedLatency,
-          isError: true,
-        },
-      ]);
-    } finally {
-      setIsUploading(false);
+  // Selecting a file only stages it (shown as a preview above the input);
+  // it is sent together with the user's message when they press Send.
+  const selectFile = (file: File) => {
+    if (file.size > 8 * 1024 * 1024) {
+      alert("This file is too large. Please choose one under 8 MB.");
+      return;
     }
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingFile(file);
+    setPendingPreview(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
+    setActiveTab("Chats");
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // lets the same file be picked again later
+    if (file) selectFile(file);
+  };
+
+  const removePendingFile = () => {
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingFile(null);
+    setPendingPreview(null);
   };
 
   const navItems = [
@@ -355,8 +342,8 @@ export default function QwenDashboard() {
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleFileUpload}
-        accept=".png,.jpg,.jpeg,.pdf,.txt"
+        onChange={handleFileSelect}
+        accept=".png,.jpg,.jpeg,.webp,.pdf,.txt"
         className="hidden"
       />
 
@@ -620,6 +607,22 @@ export default function QwenDashboard() {
                         {msg.latency !== undefined && <span className="text-[10px] opacity-70 font-normal">⏱️ {msg.latency}s</span>}
                       </div>
                     )}
+                    {msg.attachment &&
+                      (msg.attachment.previewUrl ? (
+                        <div className="mb-2">
+                          <img
+                            src={msg.attachment.previewUrl}
+                            alt={msg.attachment.name}
+                            className="max-h-56 w-auto max-w-full rounded-xl border border-white/10 object-contain"
+                          />
+                          <div className="text-[10px] opacity-70 mt-1 truncate">{msg.attachment.name}</div>
+                        </div>
+                      ) : (
+                        <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-xs">
+                          <FileText className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{msg.attachment.name}</span>
+                        </div>
+                      ))}
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>
 
                     {msg.extractedData && (
@@ -791,6 +794,39 @@ export default function QwenDashboard() {
               darkMode ? "bg-[#090d22]/90 border-indigo-500/30" : "bg-white/90 border-slate-300"
             }`}
           >
+            {pendingFile && (
+              <div
+                className={`msg-enter mb-2 flex items-center gap-3 p-2 rounded-xl border ${
+                  darkMode ? "border-indigo-500/30 bg-indigo-950/40" : "border-slate-300 bg-slate-100"
+                }`}
+              >
+                {pendingPreview ? (
+                  <img
+                    src={pendingPreview}
+                    alt={pendingFile.name}
+                    className="h-12 w-12 rounded-lg object-cover border border-indigo-400/30"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-lg bg-indigo-600/20 border border-indigo-400/30 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-indigo-400" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold truncate">{pendingFile.name}</div>
+                  <div className="text-[10px] opacity-60">
+                    {(pendingFile.size / 1024).toFixed(1)} KB - ready, press Send
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={removePendingFile}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Remove file"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -801,7 +837,7 @@ export default function QwenDashboard() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading || isLoading}
+                disabled={isLoading}
                 className={`flex-shrink-0 p-2.5 rounded-xl border transition-colors cursor-pointer disabled:opacity-50 ${
                   darkMode ? "border-indigo-500/20 text-indigo-400 hover:bg-indigo-950/50" : "border-slate-300 text-slate-600 hover:bg-slate-100"
                 }`}
@@ -823,7 +859,7 @@ export default function QwenDashboard() {
 
               <button
                 type="submit"
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || (!input.trim() && !pendingFile)}
                 className="flex-shrink-0 py-2.5 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-indigo-500/20 hover:shadow-[0_0_20px_rgba(129,140,248,0.55)] active:scale-95 transition-all duration-200 cursor-pointer"
               >
                 <span className="hidden sm:inline">Send</span>
@@ -869,14 +905,20 @@ export default function QwenDashboard() {
           <h3 className="text-xs font-semibold tracking-wider opacity-80">Upload Document</h3>
           <div
             onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const dropped = e.dataTransfer.files?.[0];
+              if (dropped) selectFile(dropped);
+            }}
             className="border-2 border-dashed border-indigo-500/30 rounded-xl p-4 text-center hover:border-indigo-400 cursor-pointer transition-colors bg-indigo-950/10"
           >
             <Upload className="h-5 w-5 text-indigo-400 mx-auto mb-1.5" />
-            <div className="text-xs font-medium">{isUploading ? "Uploading..." : "Drag & drop your file here"}</div>
+            <div className="text-xs font-medium">{pendingFile ? "File ready - press Send" : "Drag & drop your file here"}</div>
             <div className="text-[10px] opacity-70 mt-1">
               or <span className="text-indigo-400 underline">click to browse</span>
             </div>
-            <div className="text-[9px] opacity-50 mt-1">Supports PDF, PNG, TXT, DOCX</div>
+            <div className="text-[9px] opacity-50 mt-1">Supports PDF, PNG, JPG, WEBP, TXT</div>
           </div>
         </div>
 
