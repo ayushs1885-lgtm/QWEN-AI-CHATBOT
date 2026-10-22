@@ -76,8 +76,29 @@ DEFAULT_SYSTEM = (
     "You are a highly capable AI assistant. Answer the user's prompt directly, "
     "thoroughly, and accurately. Do NOT output generic template headings like "
     "'Qwen AI Analysis' or filler bullet points like 'Key focus identified'. "
-    "Directly provide the complete answer."
+    "Directly provide the complete answer. "
+    "You CAN analyze images and files when the user attaches one with their message. "
+    "If the user asks about an image or file but none is attached, politely ask them "
+    "to attach it using the paperclip button instead of saying you cannot view images."
 )
+
+MAX_HISTORY_MESSAGES = 10
+
+
+def parse_history(raw: str) -> list:
+    """The frontend sends recent turns as JSON so the bot remembers the conversation.
+    Anything malformed is ignored rather than failing the request."""
+    if not raw:
+        return []
+    try:
+        items = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    cleaned = []
+    for item in items if isinstance(items, list) else []:
+        if isinstance(item, dict) and item.get("role") in ("user", "assistant") and isinstance(item.get("content"), str):
+            cleaned.append({"role": item["role"], "content": item["content"][:2000]})
+    return cleaned[-MAX_HISTORY_MESSAGES:]
 
 OCR_SYSTEM = (
     "You extract structured data from documents. Read the provided context and "
@@ -95,7 +116,7 @@ TAB_SYSTEM_PROMPTS = {
 }
 
 
-async def call_groq(prompt: str, system: str, temperature: float, max_tokens: int) -> str:
+async def call_groq(prompt: str, system: str, temperature: float, max_tokens: int, history: list = None) -> str:
     """
     Sends the prompt to Groq's OpenAI-compatible chat completions endpoint.
     This is a cloud-hosted API — no local server, no tunnel, no laptop uptime
@@ -111,6 +132,7 @@ async def call_groq(prompt: str, system: str, temperature: float, max_tokens: in
         "model": GROQ_MODEL,
         "messages": [
             {"role": "system", "content": system},
+            *(history or []),
             {"role": "user", "content": prompt},
         ],
         "temperature": temperature,
@@ -192,7 +214,7 @@ def extract_file_text(filename: str, content: bytes, max_chars: int = 2000) -> s
 
 
 async def call_groq_vision(image_bytes: bytes, filename: str, question: str, system: str,
-                            temperature: float, max_tokens: int) -> str:
+                            temperature: float, max_tokens: int, history: list = None) -> str:
     """
     Sends the image directly to a Groq multimodal model (no local OCR engine
     needed — Tesseract/OpenCV aren't installable as system binaries on
@@ -216,6 +238,7 @@ async def call_groq_vision(image_bytes: bytes, filename: str, question: str, sys
         "model": GROQ_VISION_MODEL,
         "messages": [
             {"role": "system", "content": system},
+            *(history or []),
             {
                 "role": "user",
                 "content": [
@@ -291,10 +314,12 @@ async def analyze(
     active_tab: str = Form("Chats"),
     temperature: float = Form(0.7),
     max_tokens: int = Form(1024),
+    history: str = Form(""),
     file: UploadFile = File(None),
 ):
     start_time = time.time()
     system_prompt = TAB_SYSTEM_PROMPTS.get(active_tab, DEFAULT_SYSTEM)
+    chat_history = parse_history(history)
 
     if file:
         content = await file.read()
@@ -307,7 +332,7 @@ async def analyze(
             # normal chat uses the dedicated image-analysis prompt
             vision_system = system_prompt if active_tab in TAB_SYSTEM_PROMPTS else VISION_SYSTEM
             ai_response = await call_groq_vision(
-                content, file.filename, message, vision_system, temperature, max_tokens
+                content, file.filename, message, vision_system, temperature, max_tokens, chat_history
             )
         else:
             file_text = extract_file_text(file.filename, content)
@@ -315,9 +340,9 @@ async def analyze(
                 f"Context from attached file '{file.filename}':\n{file_text}\n\n"
                 f"User Question: {message}"
             )
-            ai_response = await call_groq(formatted_prompt, system_prompt, temperature, max_tokens)
+            ai_response = await call_groq(formatted_prompt, system_prompt, temperature, max_tokens, chat_history)
     else:
-        ai_response = await call_groq(message, system_prompt, temperature, max_tokens)
+        ai_response = await call_groq(message, system_prompt, temperature, max_tokens, chat_history)
 
     latency = round(time.time() - start_time, 2)
 

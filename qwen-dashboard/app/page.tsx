@@ -157,6 +157,10 @@ export default function QwenDashboard() {
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
+  // The last file sent stays attached to follow-up questions, so the bot can
+  // keep answering about it (the backend itself is stateless).
+  const [contextFile, setContextFile] = useState<File | null>(null);
+  const [contextPreview, setContextPreview] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [userName, setUserName] = useState<string>("Guest");
 
@@ -202,6 +206,12 @@ export default function QwenDashboard() {
 
   const handleSend = async (customQuery?: string) => {
     const fileToSend = customQuery ? null : pendingFile;
+    // typed follow-up with no new upload -> reuse the file already under discussion
+    const fileForRequest = fileToSend ?? (customQuery ? null : contextFile);
+    const recentHistory = messages
+      .filter((m) => !m.isError)
+      .slice(-8)
+      .map((m) => ({ role: m.role, content: m.content.slice(0, 1500) }));
     const queryToSend =
       customQuery || input.trim() || (fileToSend ? `Please analyze this file: ${fileToSend.name}` : "");
     if ((!queryToSend.trim() && !fileToSend) || isLoading) return;
@@ -217,6 +227,8 @@ export default function QwenDashboard() {
     if (!customQuery) setInput("");
     if (fileToSend) {
       // keep the object URL alive: the chat bubble still needs it to show the image
+      setContextFile(fileToSend);
+      setContextPreview(pendingPreview);
       setPendingFile(null);
       setPendingPreview(null);
     }
@@ -249,7 +261,8 @@ export default function QwenDashboard() {
       const formData = new FormData();
       formData.append("message", queryToSend);
       formData.append("active_tab", activeTab);
-      if (fileToSend) formData.append("file", fileToSend);
+      formData.append("history", JSON.stringify(recentHistory));
+      if (fileForRequest) formData.append("file", fileForRequest);
       formData.append("temperature", String(temperature));
       formData.append("max_tokens", String(maxTokens));
 
@@ -365,6 +378,12 @@ export default function QwenDashboard() {
     if (file) selectFile(file);
   };
 
+  const clearContextFile = () => {
+    // not revoked: the earlier chat bubble still displays this image
+    setContextFile(null);
+    setContextPreview(null);
+  };
+
   const removePendingFile = () => {
     if (pendingPreview) URL.revokeObjectURL(pendingPreview);
     setPendingFile(null);
@@ -434,6 +453,7 @@ export default function QwenDashboard() {
             onClick={() => {
               setActiveTab("Chats");
               setMessages([]);
+              clearContextFile();
               closeSidebarOnMobile();
             }}
             className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 hover:shadow-[0_0_18px_rgba(129,140,248,0.5)] hover:scale-[1.02] active:scale-95 transition-all duration-200 cursor-pointer"
@@ -841,6 +861,37 @@ export default function QwenDashboard() {
               darkMode ? "bg-[#090d22]/90 border-indigo-500/30" : "bg-white/90 border-slate-300"
             }`}
           >
+            {contextFile && !pendingFile && (
+              <div
+                className={`mb-2 flex items-center gap-3 p-2 rounded-xl border ${
+                  darkMode ? "border-purple-500/30 bg-purple-950/30" : "border-slate-300 bg-slate-100"
+                }`}
+              >
+                {contextPreview ? (
+                  <img
+                    src={contextPreview}
+                    alt={contextFile.name}
+                    className="h-9 w-9 rounded-lg object-cover border border-purple-400/30"
+                  />
+                ) : (
+                  <div className="h-9 w-9 rounded-lg bg-purple-600/20 border border-purple-400/30 flex items-center justify-center">
+                    <FileText className="h-4 w-4 text-purple-300" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold truncate">{contextFile.name}</div>
+                  <div className="text-[10px] opacity-60">Attached - ask anything about this file</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearContextFile}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Detach file"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             {pendingFile && (
               <div
                 className={`msg-enter mb-2 flex items-center gap-3 p-2 rounded-xl border ${
