@@ -301,14 +301,61 @@ export default function QwenDashboard() {
 
   // Selecting a file only stages it (shown as a preview above the input);
   // it is sent together with the user's message when they press Send.
-  const selectFile = (file: File) => {
-    if (file.size > 8 * 1024 * 1024) {
-      alert("This file is too large. Please choose one under 8 MB.");
+  // Phone photos are huge; shrink images to a sensible size before sending so
+  // uploads are fast and stay under the vision model's request-size limit.
+  const compressImage = (file: File): Promise<File> =>
+    new Promise((resolve) => {
+      if (!file.type.startsWith("image/") || file.type === "image/gif") return resolve(file);
+      const url = URL.createObjectURL(file);
+      const img = new window.Image();
+      img.onload = () => {
+        const MAX_SIDE = 2000;
+        const scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          return resolve(file);
+        }
+        ctx.fillStyle = "#ffffff"; // PNGs with transparency would otherwise turn black as JPEG
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob || blob.size >= file.size) return resolve(file); // keep original if not smaller
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          0.88
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
+
+  const selectFile = async (original: File) => {
+    if (original.size > 25 * 1024 * 1024) {
+      alert("This file is too large. Please choose one under 25 MB.");
       return;
     }
-    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    const file = await compressImage(original);
+    const isImage = file.type.startsWith("image/");
+    if ((isImage && file.size > 3 * 1024 * 1024) || (!isImage && file.size > 8 * 1024 * 1024)) {
+      alert(isImage ? "This image is still too large after compression. Please choose a smaller one." : "This file is too large. Please choose one under 8 MB.");
+      return;
+    }
+    const newPreview = isImage ? URL.createObjectURL(file) : null;
     setPendingFile(file);
-    setPendingPreview(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
+    setPendingPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return newPreview;
+    });
     setActiveTab("Chats");
   };
 
